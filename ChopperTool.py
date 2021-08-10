@@ -1,0 +1,198 @@
+from UM.Tool import Tool
+from UM.Event import Event
+from UM.Application import Application
+from UM.Scene.Selection import Selection
+from UM.Scene.SceneNode import SceneNode
+from UM.Mesh.MeshBuilder import MeshBuilder
+from UM.Event import Event, MouseEvent
+
+from UM.Math.Plane import Plane
+from UM.Math.Vector import Vector
+from UM.Logger import Logger
+
+
+from .ChopperToolHandle import ChopperToolHandle
+from .PlaneNode import PlaneNode
+import numpy
+
+from cura.Scene.SliceableObjectDecorator import SliceableObjectDecorator
+
+class ChopperTool(Tool):
+    def __init__(self):
+        super().__init__()
+        self._previous_view = None
+
+        self._handle = ChopperToolHandle()
+        self._handle.setEnabledAxis([self._handle.YAxis])
+
+        self.setExposedProperties("CutDirection")
+        self._is_cutting = False
+        self._objects_to_cut = []
+        self._active_node = None
+        self._plane_node = None
+        self._cut_direction = "z"
+
+    def getCutDirection(self):
+        return self._cut_direction
+
+    def setCutDirection(self, direction):
+        if self._cut_direction != direction:
+
+            self._cut_direction = direction
+            self._updatePlaneMesh()
+            if self._cut_direction == "z":
+                self._handle.setEnabledAxis([self._handle.YAxis])
+            elif self._cut_direction == "y":
+                self._handle.setEnabledAxis([self._handle.ZAxis])
+            elif self._cut_direction == "x":
+                self._handle.setEnabledAxis([self._handle.XAxis])
+            self.propertyChanged.emit()
+
+    def cutObject(self):
+
+        return
+
+
+    def getIsCutting(self):
+        return self._is_cutting
+
+    def setIsCutting(self, is_cutting):
+        if self._is_cutting is not is_cutting:
+            self._is_cutting = is_cutting
+            if self._is_cutting:
+                # We're now in the process of cutting!
+                self._objects_to_cut = Selection.getAllSelectedObjects()
+                # TODO: Might want to change this behavior:
+                self._active_node = self._objects_to_cut[0]
+                self._activateView()
+
+            else:
+                self._deactivateView()
+
+            self.propertyChanged.emit()
+
+    def _updatePlaneMesh(self):
+        mesh_builder = MeshBuilder()
+        if self._cut_direction == "x":
+            mesh_builder.addCube(0.1, 250, 250)
+        elif self._cut_direction == "y":
+            mesh_builder.addCube(250, 250, 0.1)
+        elif self._cut_direction == "z":
+            mesh_builder.addCube(250, 0.1, 250)
+        self._plane_node.setMeshData(mesh_builder.build())
+
+    def _createPlaneNode(self):
+        self._plane_node = PlaneNode()
+        self._updatePlaneMesh()
+
+    def _activateView(self):
+        # We also have to add a plane Node (Tool handles are drawn on top, so we cant use those)
+        if not self._plane_node:
+            self._createPlaneNode()
+        self._active_node = Selection.getAllSelectedObjects()[0]
+        self._objects_to_cut = Selection.getAllSelectedObjects()
+        self._handle.setParent(self._plane_node)
+        self._handle.setPosition(Vector(0,0,0))
+
+        self._plane_node.setParent(Application.getInstance().getController().getScene().getRoot())
+        self._plane_node.setPosition(self._active_node.getBoundingBox().center)
+        self._previous_view = Application.getInstance().getController().getActiveView().getPluginId()
+        Application.getInstance().getController().setActiveView("ModelCutter")
+
+    def _deactivateView(self):
+        self._handle.setParent(None)
+        if self._plane_node:
+            self._plane_node.setParent(None)
+        self._objects_to_cut = []
+        self._is_cutting = False
+        Application.getInstance().getController().setActiveView(self._previous_view)
+
+    def event(self, event):
+        super().event(event)
+        if event.type == Event.ToolDeactivateEvent:
+            self._deactivateView()
+        elif event.type == Event.ToolActivateEvent:
+            self._activateView()
+
+        if event.type == Event.MousePressEvent and self._controller.getToolsEnabled():
+            # Start a translate operation
+            if MouseEvent.LeftButton not in event.buttons:
+                return False
+
+            id = self._selection_pass.getIdAtPosition(event.x, event.y)
+            if not id:
+                return True
+
+            if id in self._handle.getEnabledAxis():
+                self.setLockedAxis(id)
+
+            if id == self._handle.XAxis:
+                self.setDragPlane(Plane(Vector(0, 0, 1), 0))
+            elif id == self._handle.YAxis:
+                self.setDragPlane(Plane(Vector(0, 0, 1), 0))
+            elif id == self._handle.ZAxis:
+                self.setDragPlane(Plane(Vector(0, 1, 0), 0))
+            else:
+                self.setDragPlane(Plane(Vector(0, 1, 0), 0))
+
+        if event.type == Event.MouseMoveEvent:
+            # Perform a translate operation
+
+            if not self.getDragPlane():
+                return False
+
+            if not self.getDragStart():
+                self.setDragStart(event.x, event.y)
+                return False
+
+            drag = self.getDragVector(event.x, event.y)
+            if drag:
+                if self.getLockedAxis() == self._handle.XAxis:
+                    drag = drag.set(y=0, z=0)
+                elif self.getLockedAxis() == self._handle.YAxis:
+                    drag = drag.set(x=0, z=0)
+                elif self.getLockedAxis() == self._handle.ZAxis:
+                    drag = drag.set(x=0, y=0)
+
+                self._plane_node.translate(drag)
+
+                if self._cut_direction == "z":
+                    if self._plane_node.getPosition().y > self._active_node.getBoundingBox().top:
+                        new_position = self._plane_node.getPosition().set(y = self._active_node.getBoundingBox().top)
+                        self._plane_node.setPosition(new_position)
+                    elif self._plane_node.getPosition().y < self._active_node.getBoundingBox().bottom:
+                        new_position = self._plane_node.getPosition().set(y=self._active_node.getBoundingBox().bottom)
+                        self._plane_node.setPosition(new_position)
+                elif self._cut_direction == "y":
+                    if self._plane_node.getPosition().z > self._active_node.getBoundingBox().front:
+                        new_position = self._plane_node.getPosition().set(z = self._active_node.getBoundingBox().front)
+                        self._plane_node.setPosition(new_position)
+                    elif self._plane_node.getPosition().z < self._active_node.getBoundingBox().back:
+                        new_position = self._plane_node.getPosition().set(z=self._active_node.getBoundingBox().back)
+                        self._plane_node.setPosition(new_position)
+                elif self._cut_direction == "x":
+                    if self._plane_node.getPosition().x > self._active_node.getBoundingBox().right:
+                        new_position = self._plane_node.getPosition().set(x = self._active_node.getBoundingBox().right)
+                        self._plane_node.setPosition(new_position)
+                    elif self._plane_node.getPosition().x < self._active_node.getBoundingBox().left:
+                        new_position = self._plane_node.getPosition().set(x=self._active_node.getBoundingBox().left)
+                        self._plane_node.setPosition(new_position)
+
+            self.setDragStart(event.x, event.y)
+
+            return True
+
+        if event.type == Event.MouseReleaseEvent:
+            # Finish a translate operation
+            if self.getDragPlane():
+                self.operationStopped.emit(self)
+                self._distance = None
+                self.propertyChanged.emit()
+                self.setLockedAxis(None)
+                self.setDragPlane(None)
+                self.setDragStart(None, None)
+                return True
+
+        return False
+
+
