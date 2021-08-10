@@ -1,0 +1,8 @@
+{
+    "name": "Mode CUtter",
+    "author": "Jaime van Kessel",
+    "version": "0.0.1",
+    "description": "Cut up objects",
+    "api": 7,
+    "i18n-catalog": "cura"
+}
