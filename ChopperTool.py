@@ -1,3 +1,4 @@
+from UM.Message import Message
 from UM.Operations.GroupedOperation import GroupedOperation
 from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
 from UM.Tool import Tool
@@ -53,6 +54,11 @@ class ChopperTool(Tool):
         mesh_data = self._active_node.getMeshData().getTransformed(self._active_node.getWorldTransformation())
         indices = numpy.arange(mesh_data.getVertexCount()).reshape(-1, 3)
         trimesh_mesh = trimesh.base.Trimesh(vertices=mesh_data.getVertices(), faces=indices)
+
+        if not trimesh_mesh.is_watertight:
+            Message(title="Unable to cut", text="Unable to cut a model that isn't watertight", message_type=Message.MessageType.WARNING).show()
+            return
+
         plane_position = self._plane_node.getPosition()
 
         if self._cut_direction == "z":
@@ -70,7 +76,6 @@ class ChopperTool(Tool):
         replaceSceneNode(self._active_node, [half_one, half_two])
         op = GroupedOperation()
         op.addOperation(RemoveSceneNodeOperation(self._active_node))
-        return
 
     def getIsCutting(self):
         return self._is_cutting
