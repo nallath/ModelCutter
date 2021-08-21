@@ -5,8 +5,6 @@ from UM.Math.Color import Color
 from UM.Scene.Iterator.DepthFirstIterator import DepthFirstIterator
 from UM.Application import Application
 
-from UM.View.RenderBatch import RenderBatch
-
 
 class ChopperView(View):
     def __init__(self):
