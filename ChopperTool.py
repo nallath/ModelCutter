@@ -34,6 +34,12 @@ class ChopperTool(Tool):
         self._plane_node = None
         self._cut_direction = "z"
 
+    def getObjectsToCut(self):
+        return self._objects_to_cut
+
+    def getActiveNode(self):
+        return self._active_node
+
     def getCutDirection(self):
         return self._cut_direction
 
@@ -89,10 +95,8 @@ class ChopperTool(Tool):
                 # TODO: Might want to change this behavior:
                 self._active_node = self._objects_to_cut[0]
                 self._activateView()
-
             else:
                 self._deactivateView()
-
             self.propertyChanged.emit()
 
     def _updatePlaneMesh(self):

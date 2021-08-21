@@ -1,9 +1,13 @@
+from typing import cast
+
 from UM.View.View import View
 from UM.View.GL.OpenGL import OpenGL
 from UM.Resources import Resources
 from UM.Math.Color import Color
 from UM.Scene.Iterator.DepthFirstIterator import DepthFirstIterator
 from UM.Application import Application
+
+from .ChopperTool import ChopperTool
 
 
 class ChopperView(View):
@@ -18,7 +22,6 @@ class ChopperView(View):
     def beginRendering(self):
         scene = self.getController().getScene()
         renderer = self.getRenderer()
-
         # Create two materials; an active material (normal) and a deactive material (slightly transparent)
         if not self._active_node_shader:
             self._active_node_shader = OpenGL.getInstance().createShaderProgram(
@@ -38,18 +41,18 @@ class ChopperView(View):
                 Resources.getPath(Resources.Shaders, "color.shader"))
             self._ghost_node_shader.setUniformValue("u_color", Color(*Application.getInstance().getTheme().getColor("layerview_ghost").getRgb()))
 
+        # Note that this view is only active when the ChopperTool is active.
+        tool = cast(ChopperTool, self.getController().getActiveTool())
+        active_node = tool.getActiveNode()
         for node in DepthFirstIterator(scene.getRoot()):
-
-            if node in self.getController().getActiveTool()._objects_to_cut:
-                if node == self.getController().getActiveTool()._active_node:
+            if node in tool.getObjectsToCut():
+                if node == active_node:
                     renderer.queueNode(node, shader=self._active_node_shader)
                 else:
                     renderer.queueNode(node, shader=self._inactive_node_shader)
             else:
                 if node.callDecoration("isSliceable"):
-                    renderer.queueNode(node, shader=self._ghost_node_shader, transparent=True)
+                    # Render all nodes that are slicable but aren't being cut transparent
+                    renderer.queueNode(node, shader = self._ghost_node_shader, transparent = True)
                 else:
                     node.render(renderer)
-
-    def endRendering(self):
-        pass
