@@ -100,13 +100,17 @@ class ChopperTool(Tool):
             self.propertyChanged.emit()
 
     def _updatePlaneMesh(self):
+        global_container_stack = Application.getInstance().getGlobalContainerStack()
+        machine_width = global_container_stack.getProperty("machine_width", "value")
+        machine_depth = global_container_stack.getProperty("machine_depth", "value")
+        machine_height = global_container_stack.getProperty("machine_height", "value")
         mesh_builder = MeshBuilder()
         if self._cut_direction == "x":
-            mesh_builder.addCube(0.1, 250, 250)
+            mesh_builder.addCube(0.1, machine_height, machine_depth)
         elif self._cut_direction == "y":
-            mesh_builder.addCube(250, 250, 0.1)
+            mesh_builder.addCube(machine_width, machine_height, 0.1)
         elif self._cut_direction == "z":
-            mesh_builder.addCube(250, 0.1, 250)
+            mesh_builder.addCube(machine_width, 0.1, machine_depth)
         self._plane_node.setMeshData(mesh_builder.build())
 
     def _createPlaneNode(self):
