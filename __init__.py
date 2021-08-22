@@ -1,18 +1,18 @@
 from typing import Dict
-
+import os
 
 from . import ChopperTool
 from . import ChopperView
 
 def getMetaData() -> Dict:
-    workspace_extension = "3mf"
     return {
         "tool": {
             "name": "Chop",
             "description": "Chop up model",
-            "icon": "",
+            "icon": "cut.svg",
             "tool_panel": "ChopperTool.qml",
-            "weight": 4
+            "weight": 4,
+            "location": os.path.abspath(os.path.dirname(__file__))
         },
         "view":
         {
@@ -24,4 +24,5 @@ def getMetaData() -> Dict:
 
 
 def register(app) -> Dict:
-        return {"tool": ChopperTool.ChopperTool(), "view": ChopperView.ChopperView()}
+    return {"tool": ChopperTool.ChopperTool(),
+            "view": ChopperView.ChopperView()}
