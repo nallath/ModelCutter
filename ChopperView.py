@@ -25,16 +25,23 @@ class ChopperView(View):
         # Create two materials; an active material (normal) and a deactive material (slightly transparent)
         if not self._active_node_shader:
             self._active_node_shader = OpenGL.getInstance().createShaderProgram(
-                Resources.getPath(Resources.Shaders, "object.shader"))
+                Resources.getPath(Resources.Shaders, "overhang.shader"))
             self._active_node_shader.setUniformValue("u_ambientColor", Color(0.3, 0.3, 0.3, 1.0))
             self._active_node_shader.setUniformValue("u_diffuseColor", Color(1.0, 0.79, 0.14, 1.0))
             self._active_node_shader.setUniformValue("u_shininess", 50.0)
 
+            self._active_node_shader.setUniformValue("u_overhangAngle", 1.0)
+            self._active_node_shader.setUniformValue("u_specularColor", [0.6, 0.6, 0.6, 1.0])
+            self._active_node_shader.setUniformValue("u_renderError", 0.0)  # We don't want any error markers!.
+            self._active_node_shader.setUniformValue("u_faceId", -1)  # Don't render any selected faces in the preview.
+
         if not self._inactive_node_shader:
-            self._inactive_node_shader = OpenGL.getInstance().createShaderProgram(Resources.getPath(Resources.Shaders, "object.shader"))
+            self._inactive_node_shader = OpenGL.getInstance().createShaderProgram(Resources.getPath(Resources.Shaders, "overhang.shader"))
             self._inactive_node_shader.setUniformValue("u_ambientColor", Color(0.3, 0.3, 0.3, 1.0))
             self._inactive_node_shader.setUniformValue("u_diffuseColor", Color(0.1, 0.1, 0.1, 0.1))
             self._inactive_node_shader.setUniformValue("u_opacity", 0.2)
+            self._inactive_node_shader.setUniformValue("u_renderError", 0.0)  # We don't want any error markers!.
+            self._inactive_node_shader.setUniformValue("u_faceId", -1)  # Don't render any selected faces in the preview.
 
         if not self._ghost_node_shader:
             self._ghost_node_shader = OpenGL.getInstance().createShaderProgram(
